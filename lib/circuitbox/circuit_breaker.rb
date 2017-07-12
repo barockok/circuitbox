@@ -1,7 +1,7 @@
 class Circuitbox
   class CircuitBreaker
     attr_accessor :service, :circuit_options, :exceptions,
-                  :logger, :circuit_store, :notifier
+                  :logger, :circuit_store, :notifier, :current_exception
 
     DEFAULTS = {
       sleep_window:     300,
@@ -62,6 +62,7 @@ class Circuitbox
           logger.debug "[CIRCUIT] closed: #{service} querie success"
           success!
         rescue *exceptions => exception
+          self.current_exception = exception
           logger.debug "[CIRCUIT] closed: detected #{service} failure"
           failure!
           open! if half_open?
@@ -175,7 +176,7 @@ class Circuitbox
 
     # Store success/failure/open/close data in memcache
     def log_event(event)
-      notifier.new(service).notify(event)
+      notifier.new(service).notify(event, current_exception)
       log_event_to_process(event)
     end
 
