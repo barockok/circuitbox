@@ -1,7 +1,7 @@
 class Circuitbox
   class CircuitBreaker
     attr_accessor :service, :circuit_options, :exceptions,
-                  :logger, :circuit_store, :notifier, :current_exception
+                  :logger, :circuit_store, :notifier, :last_exception
 
     DEFAULTS = {
       sleep_window:     300,
@@ -42,13 +42,14 @@ class Circuitbox
     end
 
     def run!(run_options = {})
+      meta_run = run_options.fetch(:meta){ Hash.new }
       if open?
         logger.debug "[CIRCUIT] open: skipping #{service}"
-        open! unless open_flag?
-        skipped!
+        open!(nil, meta_run) if !open_flag?
+        skipped!(meta_run)
         raise Circuitbox::OpenCircuitError.new(service)
       else
-        close! if was_open?
+        close!(meta_run) if was_open?
         logger.debug "[CIRCUIT] closed: querying #{service}"
 
         begin
@@ -60,12 +61,12 @@ class Circuitbox
           end
 
           logger.debug "[CIRCUIT] closed: #{service} querie success"
-          success!
+          success!(meta_run)
         rescue *exceptions => exception
-          self.current_exception = exception
+          self.last_exception = exception
           logger.debug "[CIRCUIT] closed: detected #{service} failure"
-          failure!
-          open! if half_open?
+          failure!(exception, meta_run)
+          open!(exception, meta_run) if half_open?
           raise Circuitbox::ServiceFailureError.new(service, exception)
         end
       end
@@ -110,8 +111,8 @@ class Circuitbox
     end
 
   private
-    def open!
-      log_event :open
+    def open!(exception=nil, meta_run={})
+      log_event :open, exception, meta_run
       logger.debug "[CIRCUIT] opening #{service} circuit"
       circuit_store.store(storage_key(:asleep), true, expires: option_value(:sleep_window))
       half_open!
@@ -119,8 +120,9 @@ class Circuitbox
     end
 
     ### BEGIN - all this is just here to produce a close notification
-    def close!
-      log_event :close
+    def close!(meta_run={})
+      self.last_exception = nil
+      log_event :close, nil, meta_run
       circuit_store.delete(storage_key(:was_open))
     end
 
@@ -161,22 +163,23 @@ class Circuitbox
       rate
     end
 
-    def success!
-      log_event :success
+    def success!(meta_run={})
+      log_event :success, nil, meta_run
       circuit_store.delete(storage_key(:half_open))
     end
 
-    def failure!
-      log_event :failure
+    def failure!(exception=nil, meta_run={})
+      log_event :failure, exception, meta_run
     end
 
-    def skipped!
-      log_event :skipped
+    def skipped!(meta_run={})
+      log_event :skipped, nil, meta_run
     end
 
     # Store success/failure/open/close data in memcache
-    def log_event(event)
-      notifier.new(service).notify(event, current_exception)
+    def log_event(event, exception=nil, meta_run={})
+      meta_run[:exception] = exception || self.last_exception
+      notifier.new(service).notify(event, meta_run)
       log_event_to_process(event)
     end
 

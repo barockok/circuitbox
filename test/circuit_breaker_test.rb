@@ -227,7 +227,7 @@ class CircuitBreakerTest < Minitest::Test
 
   def test_records_response_failure
     circuit = Circuitbox::CircuitBreaker.new(:yammer, :exceptions => [Timeout::Error])
-    circuit.expects(:log_event).with(:failure)
+    circuit.expects(:log_event).with(:failure, is_a(Timeout::Error), {})
     emulate_circuit_run(circuit, :failure, Timeout::Error)
   end
 
@@ -235,13 +235,13 @@ class CircuitBreakerTest < Minitest::Test
     circuit = Circuitbox::CircuitBreaker.new(:yammer)
     circuit.stubs(:open? => true)
     circuit.stubs(:log_event)
-    circuit.expects(:log_event).with(:skipped)
+    circuit.expects(:log_event).with(:skipped, nil, {})
     emulate_circuit_run(circuit, :failure, Timeout::Error)
   end
 
   def test_records_response_success
     circuit = Circuitbox::CircuitBreaker.new(:yammer)
-    circuit.expects(:log_event).with(:success)
+    circuit.expects(:log_event).with(:success, nil, {})
     emulate_circuit_run(circuit, :success, "success")
   end
 
@@ -409,8 +409,8 @@ class CircuitBreakerTest < Minitest::Test
       warning_msg = opts.fetch(:warning_msg, '')
       fake_notifier = gimme
       notified = false
-      give(fake_notifier).notify(:open) { notified = true }
-      give(fake_notifier).notify(:close) { notified = true }
+      give(fake_notifier).notify(:open, anything ) { notified = true }
+      give(fake_notifier).notify(:close, anything ) { notified = true }
       give(fake_notifier).notify_warning(Gimme::Matchers::Anything.new) { notified = true }
       give(fake_notifier).metric_gauge(metric, metric_value) { notified = true }
       fake_notifier_class = gimme

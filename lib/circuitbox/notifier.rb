@@ -4,11 +4,11 @@ class Circuitbox
       @service = service
     end
 
-    def notify(event, exception=nil)
+    def notify(event, meta={})
       return unless notification_available?
-      meta = {circuit: circuit_name}
-      meta[:exception] = exception if exception
-      ActiveSupport::Notifications.instrument("circuit_#{event}", meta)
+      data = {circuit: circuit_name}
+      data[:meta] = meta
+      ActiveSupport::Notifications.instrument("circuit_#{event}", data)
     end
 
     def notify_warning(message)
