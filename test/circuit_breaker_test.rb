@@ -227,7 +227,7 @@ class CircuitBreakerTest < Minitest::Test
 
   def test_records_response_failure
     circuit = Circuitbox::CircuitBreaker.new(:yammer, :exceptions => [Timeout::Error])
-    circuit.expects(:log_event).with(:failure, is_a(Timeout::Error), {})
+    circuit.expects(:log_event).with(:failure, is_a(Timeout::Error), {exception_origin: true})
     emulate_circuit_run(circuit, :failure, Timeout::Error)
   end
 

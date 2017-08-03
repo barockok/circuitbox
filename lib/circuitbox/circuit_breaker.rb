@@ -63,6 +63,7 @@ class Circuitbox
           logger.debug "[CIRCUIT] closed: #{service} querie success"
           success!(meta_run)
         rescue *exceptions => exception
+          meta_run[:exception_origin] = true
           self.last_exception = exception
           logger.debug "[CIRCUIT] closed: detected #{service} failure"
           failure!(exception, meta_run)

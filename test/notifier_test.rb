@@ -5,7 +5,7 @@ require 'active_support/notifications'
 
 class NotifierTest < Minitest::Test
   def test_sends_notification_on_notify
-    ActiveSupport::Notifications.expects(:instrument).with("circuit_open", circuit: 'yammer')
+    ActiveSupport::Notifications.expects(:instrument).with("circuit_open", circuit: 'yammer', meta: {})
     Circuitbox::Notifier.new(:yammer).notify(:open)
   end
 
